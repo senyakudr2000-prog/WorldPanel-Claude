@@ -38,6 +38,19 @@ jobs:
         with:
           gradle-version: '8.14.3'
 
+      - name: Set project version to 1.0.1
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(grep -RIl --include='*.gradle' --include='*.gradle.kts' --include='gradle.properties' --include='*.toml' '1.0.0' "$PROJECT_DIR" || true)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::Could not find version 1.0.0 in Gradle project files"
+            exit 1
+          fi
+          for file in "${files[@]}"; do
+            sed -i 's/1\.0\.0/1.0.1/g' "$file"
+          done
+          grep -RIn --include='*.gradle' --include='*.gradle.kts' --include='gradle.properties' --include='*.toml' '1.0.1' "$PROJECT_DIR"
+
       - name: Build jar
         working-directory: ${{ env.PROJECT_DIR }}
         run: gradle build --no-daemon --stacktrace
@@ -45,6 +58,6 @@ jobs:
       - name: Upload jar
         uses: actions/upload-artifact@v4
         with:
-          name: floatui-jar
+          name: FloatUI-1.0.1
           path: ${{ env.PROJECT_DIR }}/build/libs/*.jar
           if-no-files-found: error
