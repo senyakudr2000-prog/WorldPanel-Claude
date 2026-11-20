@@ -1,9 +1,14 @@
-
-name: Build mod
+name: Build Floating Inventory
 
 on:
   push:
+    paths:
+      - 'FloatUI-1.0.2-mod.zip'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -12,21 +17,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unpack mod.zip
+      - name: Unpack the exact mod archive
+        shell: bash
         run: |
-          set -e
-          ZIP=$(ls -1 *.zip | head -n 1)
-          echo "Using archive: $ZIP"
+          set -euo pipefail
+          ZIP="FloatUI-1.0.2-mod.zip"
+          test -f "$ZIP" || { echo "Archive not found: $ZIP" >&2; exit 1; }
           mkdir -p unpacked
           unzip -q -o "$ZIP" -d unpacked
-          COMMON=$(find unpacked -maxdepth 3 -type d -name common | head -n 1)
-          if [ -z "$COMMON" ]; then
-            echo "common/ folder not found inside the zip" >&2
+          COMMON="$(find unpacked -type d -name common -print -quit)"
+          if [[ -z "$COMMON" ]]; then
+            echo "common/ folder not found inside $ZIP" >&2
             exit 1
           fi
-          ROOT=$(dirname "$COMMON")
-          echo "Project root: $ROOT"
+          ROOT="$(dirname "$COMMON")"
+          for module in neoforge fabric; do
+            test -d "$ROOT/$module" || {
+              echo "Missing module directory: $ROOT/$module" >&2
+              exit 1
+            }
+          done
           echo "ROOT_DIR=$ROOT" >> "$GITHUB_ENV"
+          echo "Project root: $ROOT"
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -45,13 +57,21 @@ jobs:
         working-directory: ${{ env.ROOT_DIR }}/neoforge
         run: gradle build --no-daemon --stacktrace
 
-      - name: Apply Fabric Mojang mappings compatibility
+      # The shared source uses Mojang/NeoForge GUI accessor names.
+      # Fabric Loom's official Mojang mappings expose the equivalent fields.
+      - name: Apply Fabric GUI mappings compatibility
         working-directory: ${{ env.ROOT_DIR }}
+        shell: bash
         run: |
+          set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          p = Path("common/src/main/java/dev/floatui/FloatPanel.java")
-          s = p.read_text()
+
+          path = Path("common/src/main/java/dev/floatui/FloatPanel.java")
+          if not path.is_file():
+              raise SystemExit(f"Expected shared source not found: {path}")
+
+          source = path.read_text(encoding="utf-8")
           replacements = {
               "getGuiLeft()": "leftPos",
               "getGuiTop()": "topPos",
@@ -59,8 +79,8 @@ jobs:
               "getYSize()": "imageHeight",
           }
           for old, new in replacements.items():
-              s = s.replace(old, new)
-          p.write_text(s)
+              source = source.replace(old, new)
+          path.write_text(source, encoding="utf-8")
           PY
 
       - name: Build Fabric 1.21.1
@@ -73,7 +93,7 @@ jobs:
         if: steps.neoforge.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: floatui-neoforge-1.0.2
+          name: floating-inventory-neoforge-1.21.1
           path: ${{ env.ROOT_DIR }}/neoforge/build/libs/floatui-neoforge-*.jar
           if-no-files-found: error
 
@@ -81,15 +101,16 @@ jobs:
         if: steps.fabric.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: floatui-fabric-1.0.2
+          name: floating-inventory-fabric-1.21.1
           path: |
             ${{ env.ROOT_DIR }}/fabric/build/libs/floatui-fabric-*.jar
             !${{ env.ROOT_DIR }}/fabric/build/libs/*-sources.jar
           if-no-files-found: error
 
-      - name: Fail if any build failed
+      - name: Fail if either loader build failed
         if: steps.neoforge.outcome != 'success' || steps.fabric.outcome != 'success'
+        shell: bash
         run: |
-          echo "NeoForge: ${{ steps.neoforge.outcome }}, Fabric: ${{ steps.fabric.outcome }}" >&2
+          echo "NeoForge: ${{ steps.neoforge.outcome }}" >&2
+          echo "Fabric: ${{ steps.fabric.outcome }}" >&2
           exit 1
-          
