@@ -45,6 +45,24 @@ jobs:
         working-directory: ${{ env.ROOT_DIR }}/neoforge
         run: gradle build --no-daemon --stacktrace
 
+      - name: Apply Fabric Mojang mappings compatibility
+        working-directory: ${{ env.ROOT_DIR }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("common/src/main/java/dev/floatui/FloatPanel.java")
+          s = p.read_text()
+          replacements = {
+              "getGuiLeft()": "leftPos",
+              "getGuiTop()": "topPos",
+              "getXSize()": "imageWidth",
+              "getYSize()": "imageHeight",
+          }
+          for old, new in replacements.items():
+              s = s.replace(old, new)
+          p.write_text(s)
+          PY
+
       - name: Build Fabric 1.21.1
         id: fabric
         continue-on-error: true
