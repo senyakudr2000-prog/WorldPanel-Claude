@@ -1,3 +1,4 @@
+
 name: Build mod
 
 on:
@@ -54,7 +55,7 @@ jobs:
         if: steps.neoforge.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: floatui-neoforge-1.21.1
+          name: floatui-neoforge-1.0.2
           path: ${{ env.ROOT_DIR }}/neoforge/build/libs/floatui-neoforge-*.jar
           if-no-files-found: error
 
@@ -62,7 +63,7 @@ jobs:
         if: steps.fabric.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: floatui-fabric-1.21.1
+          name: floatui-fabric-1.0.2
           path: |
             ${{ env.ROOT_DIR }}/fabric/build/libs/floatui-fabric-*.jar
             !${{ env.ROOT_DIR }}/fabric/build/libs/*-sources.jar
@@ -73,3 +74,4 @@ jobs:
         run: |
           echo "NeoForge: ${{ steps.neoforge.outcome }}, Fabric: ${{ steps.fabric.outcome }}" >&2
           exit 1
+          
