@@ -3,7 +3,7 @@ name: Build Floating Inventory
 on:
   push:
     paths:
-      - 'FloatUI-1.0.2-mod.zip'
+      - 'mod.zip'
       - '.github/workflows/build.yml'
   workflow_dispatch:
 
@@ -21,7 +21,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="FloatUI-1.0.2-mod.zip"
+          ZIP="mod.zip"
           test -f "$ZIP" || { echo "Archive not found: $ZIP" >&2; exit 1; }
           mkdir -p unpacked
           unzip -q -o "$ZIP" -d unpacked
@@ -57,8 +57,7 @@ jobs:
         working-directory: ${{ env.ROOT_DIR }}/neoforge
         run: gradle build --no-daemon --stacktrace
 
-      # The shared source uses Mojang/NeoForge GUI accessor names.
-      # Fabric Loom's official Mojang mappings expose the equivalent fields.
+      # Apply only to the extracted working copy; the committed archive stays unchanged.
       - name: Apply Fabric GUI mappings compatibility
         working-directory: ${{ env.ROOT_DIR }}
         shell: bash
