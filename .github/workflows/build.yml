@@ -112,6 +112,66 @@ jobs:
               metadata.write_text(json.dumps(meta, indent=2) + "\n")
               cfg.unlink()
           PY
+      - name: Ensure Fabric 1.21.11 mixin resources exist
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, os
+          root = Path(os.environ["ROOT_DIR"])
+          resources = root / "fabric-1.21.11/src/main/resources"
+          metadata = resources / "fabric.mod.json"
+          if not metadata.is_file():
+              raise SystemExit(f"Missing Fabric metadata: {metadata}")
+          # The previous split step left a stale reference to a config that
+          # was never packaged. Recreate both configs explicitly and list
+          # each resource exactly once.
+          fabric_config = {
+              "required": True,
+              "minVersion": "0.8",
+              "package": "dev.floatui.fabric.mixin",
+              "compatibilityLevel": "JAVA_21",
+              "client": [
+                  "GameRendererMixin",
+                  "GuiRendererMixin",
+                  "KeyboardHandlerMixin",
+                  "LevelRendererMixin",
+                  "MinecraftMixin",
+                  "MouseHandlerMixin"
+              ]
+          }
+          common_config = {
+              "required": True,
+              "minVersion": "0.8",
+              "package": "dev.floatui.mixin",
+              "compatibilityLevel": "JAVA_21",
+              "client": [
+                  "ScreenMixin",
+                  "ContainerScreenAccess"
+              ]
+          }
+          (resources / "floatui.fabric.mixins.json").write_text(
+              json.dumps(fabric_config, indent=2) + "\n"
+          )
+          (resources / "floatui.fabric.mixins.dev_floatui_mixin.json").write_text(
+              json.dumps(common_config, indent=2) + "\n"
+          )
+          meta = json.loads(metadata.read_text())
+          meta["mixins"] = [
+              "floatui.fabric.mixins.json",
+              "floatui.fabric.mixins.dev_floatui_mixin.json"
+          ]
+          metadata.write_text(json.dumps(meta, indent=2) + "\n")
+          # Fail early if any declared mixin class is absent from source.
+          source = root / "fabric-1.21.11/src/main/java"
+          for config in (fabric_config, common_config):
+              package_path = Path(*config["package"].split("."))
+              for name in config["client"]:
+                  java = source / package_path / (name + ".java")
+                  if not java.is_file():
+                      raise SystemExit(f"Mixin source missing: {java}")
+          print("Fabric 1.21.11 mixin configs repaired and validated.")
+          PY
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
