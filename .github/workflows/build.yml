@@ -27,6 +27,32 @@ jobs:
           echo "Project root: $ROOT"
           echo "ROOT_DIR=$ROOT" >> "$GITHUB_ENV"
 
+
+      - name: Patch source to 1.2.0 and fix Fabric 1.21.11 APIs
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("unpacked") / "floatui"
+          for path in root.rglob("gradle.properties"):
+              text = path.read_text()
+              text = __import__("re").sub(r"(?m)^mod_version=.*$", "mod_version=1.2.0", text)
+              path.write_text(text)
+          toml = root / "neoforge/src/main/resources/META-INF/neoforge.mods.toml"
+          if toml.exists():
+              toml.write_text(toml.read_text().replace('version="1.1.0"', 'version="1.2.0"'))
+          readme = root / "README.md"
+          if readme.exists():
+              readme.write_text(readme.read_text().replace("-1.1.0.jar", "-1.2.0.jar"))
+          fabric = root / "fabric-1.21.11/src/main/java/dev/floatui/fabric/FloatUIFabric.java"
+          if fabric.exists():
+              s = fabric.read_text()
+              s = s.replace("net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper", "net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper")
+              s = s.replace("KeyMappingHelper.registerKeyMapping(", "KeyBindingHelper.registerKeyBinding(")
+              fabric.write_text(s)
+          panel = root / "fabric-1.21.11/src/main/java/dev/floatui/FloatPanel.java"
+          if panel.exists():
+              panel.write_text(panel.read_text().replace("s.resize(mc, gw, gh)", "s.resize(gw, gh)"))
+          PY
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -65,7 +91,7 @@ jobs:
         if: steps.neoforge.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: floatui-neoforge-1.0.2-mc1.21.1
+          name: floatui-neoforge-1.2.0-mc1.21.1
           path: ${{ env.ROOT_DIR }}/neoforge/build/libs/floatui-neoforge-*.jar
           if-no-files-found: error
 
@@ -73,7 +99,7 @@ jobs:
         if: steps.fabric.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: floatui-fabric-1.0.2-mc1.21.1
+          name: floatui-fabric-1.2.0-mc1.21.1
           path: |
             ${{ env.ROOT_DIR }}/fabric/build/libs/floatui-fabric-*.jar
             !${{ env.ROOT_DIR }}/fabric/build/libs/*-sources.jar
@@ -83,10 +109,25 @@ jobs:
         if: steps.fabric1211.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: floatui-fabric-1.0.2-mc1.21.11
+          name: floatui-fabric-1.2.0-mc1.21.11
           path: |
             ${{ env.ROOT_DIR }}/fabric-1.21.11/build/libs/floatui-fabric-*.jar
             !${{ env.ROOT_DIR }}/fabric-1.21.11/build/libs/*-sources.jar
+          if-no-files-found: error
+
+
+      - name: Package patched source
+        if: always()
+        run: |
+          cd unpacked
+          zip -qr ../FloatUI-1.2.0-source.zip floatui
+
+      - name: Upload patched source ZIP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: floatui-source-1.2.0
+          path: FloatUI-1.2.0-source.zip
           if-no-files-found: error
 
       - name: Fail if any build failed
