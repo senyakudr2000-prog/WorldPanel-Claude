@@ -87,7 +87,7 @@ jobs:
                       if len(packages) != 1:
                           raise RuntimeError(f"Ambiguous Mixin source for {entry_name}: {sorted(packages)}")
                       package = packages.pop()
-                      groups.setdefault(package, {k: [] for k in ("mixins", "client", "server")})[section].append(entry_name)
+                      groups.setdefault(package, {k: [] for k in ("mixins", "client", "server")})[section].append(simple)
               if not groups:
                   raise RuntimeError(f"No Mixin classes found in {cfg}")
               metadata = root / "fabric-1.21.11/src/main/resources/fabric.mod.json"
@@ -99,7 +99,7 @@ jobs:
                   mixin_configs.append(cfg.name)
               new_configs = []
               for index, (package, sections) in enumerate(sorted(groups.items())):
-                  new_name = cfg.name if index == 0 else cfg.stem + "." + package.rsplit(".", 1)[-1] + ".json"
+                  new_name = cfg.name if index == 0 else cfg.stem + "." + package.replace(".", "_") + ".json"
                   new_data = dict(data)
                   new_data["package"] = package
                   for section in ("mixins", "client", "server"):
