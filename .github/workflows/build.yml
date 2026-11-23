@@ -61,32 +61,56 @@ jobs:
           if metadata.exists():
               s = metadata.read_text().replace("dev.floatui.fabric.FloatUIFabric", "dev.floatuibootstrap.FloatUIFabric")
               metadata.write_text(s)
-          # Keep ordinary classes outside the Mixin package. Infer the real
-          # package from the source files listed by each Mixin config.
-          import json
-          for cfg in root.rglob("*.mixins.json"):
+          # Split mixins by their actual Java package. The source uses both
+          # dev.floatui.mixin and dev.floatui.fabric.mixin; a broad parent
+          # package would also reserve normal classes such as FloatConfig.
+          import json, re
+          for cfg in list(root.rglob("*.mixins.json")):
               data = json.loads(cfg.read_text())
-              old_package = data.get("package", "")
-              if old_package == "dev.floatui":
-                  entries = []
-                  for key in ("mixins", "client", "server"):
-                      entries.extend(data.get(key, []))
-                  found_packages = set()
-                  for entry_name in entries:
+              if data.get("package") != "dev.floatui":
+                  continue
+              groups = {}
+              for section in ("mixins", "client", "server"):
+                  for entry_name in data.get(section, []):
                       simple = entry_name.split(".")[-1].split("$")[0]
+                      matches = []
                       for java in root.rglob(simple + ".java"):
                           source = java.read_text()
-                          if "@Mixin" in source:
-                              match = __import__("re").search(r"(?m)^\s*package\s+([\w.]+)\s*;", source)
-                              if match:
-                                  found_packages.add(match.group(1))
-                  if len(found_packages) == 1:
-                      data["package"] = found_packages.pop()
-                  elif len(found_packages) > 1:
-                      raise RuntimeError(f"Mixin classes in {cfg} use multiple packages: {sorted(found_packages)}")
-                  else:
-                      data["package"] = "dev.floatui.mixin"
-                  cfg.write_text(json.dumps(data, indent=2) + "\n")
+                          if "@Mixin" not in source:
+                              continue
+                          match = re.search(r"(?m)^\s*package\s+([\w.]+)\s*;", source)
+                          if match:
+                              matches.append((match.group(1), java))
+                      if not matches:
+                          raise RuntimeError(f"Cannot locate Mixin source for {entry_name} in {cfg}")
+                      packages = {item[0] for item in matches}
+                      if len(packages) != 1:
+                          raise RuntimeError(f"Ambiguous Mixin source for {entry_name}: {sorted(packages)}")
+                      package = packages.pop()
+                      groups.setdefault(package, {k: [] for k in ("mixins", "client", "server")})[section].append(entry_name)
+              if not groups:
+                  raise RuntimeError(f"No Mixin classes found in {cfg}")
+              metadata = root / "fabric-1.21.11/src/main/resources/fabric.mod.json"
+              meta = json.loads(metadata.read_text())
+              mixin_configs = meta.get("mixins", [])
+              if isinstance(mixin_configs, str):
+                  mixin_configs = [mixin_configs]
+              if cfg.name not in mixin_configs:
+                  mixin_configs.append(cfg.name)
+              new_configs = []
+              for index, (package, sections) in enumerate(sorted(groups.items())):
+                  new_name = cfg.name if index == 0 else cfg.stem + "." + package.rsplit(".", 1)[-1] + ".json"
+                  new_data = dict(data)
+                  new_data["package"] = package
+                  for section in ("mixins", "client", "server"):
+                      if section in data or sections[section]:
+                          new_data[section] = sections[section]
+                  (cfg.parent / new_name).write_text(json.dumps(new_data, indent=2) + "\\n")
+                  new_configs.append(new_name)
+              mixin_configs = [name for name in mixin_configs if name != cfg.name] + new_configs
+              meta["mixins"] = mixin_configs
+              metadata.write_text(json.dumps(meta, indent=2) + "\\n")
+              cfg.unlink()
           PY
       - name: Set up JDK 21
         uses: actions/setup-java@v4
