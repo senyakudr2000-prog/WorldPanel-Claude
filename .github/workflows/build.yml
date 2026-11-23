@@ -65,7 +65,7 @@ jobs:
         if: steps.neoforge.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: floatui-neoforge-1.21.1
+          name: floatui-neoforge-1.0.2-mc1.21.1
           path: ${{ env.ROOT_DIR }}/neoforge/build/libs/floatui-neoforge-*.jar
           if-no-files-found: error
 
@@ -73,7 +73,7 @@ jobs:
         if: steps.fabric.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: floatui-fabric-1.21.1
+          name: floatui-fabric-1.0.2-mc1.21.1
           path: |
             ${{ env.ROOT_DIR }}/fabric/build/libs/floatui-fabric-*.jar
             !${{ env.ROOT_DIR }}/fabric/build/libs/*-sources.jar
@@ -83,7 +83,7 @@ jobs:
         if: steps.fabric1211.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: floatui-fabric-1.21.11
+          name: floatui-fabric-1.0.2-mc1.21.11
           path: |
             ${{ env.ROOT_DIR }}/fabric-1.21.11/build/libs/floatui-fabric-*.jar
             !${{ env.ROOT_DIR }}/fabric-1.21.11/build/libs/*-sources.jar
