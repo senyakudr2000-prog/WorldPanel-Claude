@@ -55,11 +55,11 @@ jobs:
           # Keep the Fabric entrypoint outside the Mixin package namespace
           entry = root / "fabric-1.21.11/src/main/java/dev/floatui/fabric/FloatUIFabric.java"
           if entry.exists():
-              s = entry.read_text().replace("package dev.floatui.fabric;", "package dev.floatui.entry;", 1)
+              s = entry.read_text().replace("package dev.floatui.fabric;", "package dev.floatuibootstrap;", 1)
               entry.write_text(s)
           metadata = root / "fabric-1.21.11/src/main/resources/fabric.mod.json"
           if metadata.exists():
-              s = metadata.read_text().replace("dev.floatui.fabric.FloatUIFabric", "dev.floatui.entry.FloatUIFabric")
+              s = metadata.read_text().replace("dev.floatui.fabric.FloatUIFabric", "dev.floatuibootstrap.FloatUIFabric")
               metadata.write_text(s)
           PY
       - name: Set up JDK 21
