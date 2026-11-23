@@ -52,6 +52,15 @@ jobs:
           panel = root / "fabric-1.21.11/src/main/java/dev/floatui/FloatPanel.java"
           if panel.exists():
               panel.write_text(panel.read_text().replace("s.resize(mc, gw, gh)", "s.resize(gw, gh)"))
+          # Keep the Fabric entrypoint outside the Mixin package namespace
+          entry = root / "fabric-1.21.11/src/main/java/dev/floatui/fabric/FloatUIFabric.java"
+          if entry.exists():
+              s = entry.read_text().replace("package dev.floatui.fabric;", "package dev.floatui.entry;", 1)
+              entry.write_text(s)
+          metadata = root / "fabric-1.21.11/src/main/resources/fabric.mod.json"
+          if metadata.exists():
+              s = metadata.read_text().replace("dev.floatui.fabric.FloatUIFabric", "dev.floatui.entry.FloatUIFabric")
+              metadata.write_text(s)
           PY
       - name: Set up JDK 21
         uses: actions/setup-java@v4
